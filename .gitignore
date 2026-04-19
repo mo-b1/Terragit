@@ -49,6 +49,42 @@ CodeCoverage/
 [Bb]uild[Ll]og.*
 
 # NUnit
+
+# SQLite Database Files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Terraria Data
+# Do not accidentally commit huge world saves or the zipped blobs
+*.wld
+*.twld
+*.bak
+*.zip
+# Ignore tModLoader compiled mod files
+*.tmod 
+
+# ASP.NET Configuration & Secrets
+appsettings.Development.json
+appsettings.Local.json
+*.user
+
+# Web Frontend 
+node_modules/
+dist/
+.env
+
+# IDEs and Editors 
+.vscode/
+.idea/
+*.sln.DotSettings.user
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
