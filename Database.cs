@@ -1,12 +1,12 @@
 using System;
 using System.IO;
-using Newtonsoft.Json;
 using Terraria;
 using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
+using System.Text.Json;
 
 namespace Terragit;
 
-public class Database
+public static class Database
 {
     // Paths to the save path 
     // Json db file and commits stored in save path
@@ -16,7 +16,7 @@ public class Database
 
     // Holds db of all repos in memory
     public static TerragitData Data = new TerragitData();
-    
+
     // Branch set to this upon /tg init
     public static string DefaultBranch = "Main";
 
@@ -37,39 +37,32 @@ public class Database
         File.WriteAllText(JSONpath, jsonString);
     }
 
-    // Creates a commit on the current branch
-    public static void CreateCommit(string commitHash, string message, string previousCommitHash)
-    { 
-        // Create the new instance of the commit
-        var commit = new Commit();
-        commit.Message = message;
-        commit.CommitHash = commitHash;
-        commit.CommitTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+    
+    // Creates a repo with the name being the world name
+    public static bool CreateRepo()
+    {
+        // Replace any spaces from world name with _
+        var worldName = Main.worldName;
+        worldName = worldName.Replace(" ", "_");
 
-        // Get the current repository
-        Repository repo = GetCurrentRepo();
-
-        // If not found then repo hasn't been created, /tg init must be ran
-        if (repo == null)
+        // Create the instance of the repo
+        Repository newRepo = new Repository();
+        newRepo.Name = worldName;
+        newRepo.Guid = Main.ActiveWorldFileData.UniqueId.ToString();
+        newRepo.CurrentBranch = DefaultBranch;
+        
+        // Check if repo already exists
+        foreach (Repository repo in Data.Repositories)
         {
-            Main.NewText("You must run '/tg init' first to create the repo!", Microsoft.Xna.Framework.Color.Red);
-            return;
-        }
-
-        // Alter the current branch to point to that commit
-        foreach (Branch b in repo.Branches)
-        {
-            if (b.Name == repo.CurrentBranch)
+            if (repo.Guid == newRepo.Guid)
             {
-                // Get the previous commit hash
-                commit.PreviousCommitHash = b.LatestCommitHash;
-                // Update it 
-                b.LatestCommitHash = commitHash;
+                return false;
             }
         }
         
-        // Add the commit to the repo after getting the previous commit hash
-        repo.Commits.Add(commit);
+        // Add the repo to the list of repositories
+        Data.Repositories.Add(newRepo);
+        return true;
     }
 
     public static Repository GetCurrentRepo()
@@ -113,6 +106,16 @@ public class Database
         }
     }
 
+    public static Branch GetBranch(Repository repo, string name) 
+    {
+        foreach (Branch b in repo.Branches){
+            if (b.Name == name) {
+                return b;
+            }
+        }       
+        return null;
+    }
+
     // Creates a new branch
     public static void CreateBranch(string branchName)
     {
@@ -147,7 +150,7 @@ public class Database
     }
 
     // Gets the path to the latest commit on the current branch
-    public static string GetCommitPath()
+    public static string GetLatestCommitPath()
     {
         // Get the current repository
         Repository repo = GetCurrentRepo();
@@ -158,37 +161,74 @@ public class Database
             Main.NewText("You must run '/tg init' first to create the repo!", Microsoft.Xna.Framework.Color.Red);
             return null;
         }
-    }
 
-    public static string GetCommitPath(string commitHash)
-    {
-        
-    }
-    
-    // Creates a repo with the name being the world name
-    public static void CreateRepo()
-    {
-        // Replace any spaces from world name with _
-        var worldName = Main.worldName;
-        worldName = worldName.Replace(" ", "_");
-
-        // Create the instance of the repo
-        Repository newRepo = new Repository();
-        newRepo.Name = worldName;
-        newRepo.Guid = Main.ActiveWorldFileData.UniqueId.ToString();
-        newRepo.CurrentBranch = DefaultBranch;
-        
-        // Check if repo already exists
-        foreach (Repository repo in Data.Repositories)
+        if (repo.CurrentBranch == null) 
         {
-            if (repo.Guid == newRepo.Guid)
+            Main.NewText("No current branch for this world: You must make a commit", Microsoft.Xna.Framework.Color.Red);
+        }
+        
+        Branch CurrentBranch = GetBranch(repo, repo.CurrentBranch);
+
+        if (CurrentBranch == null) {
+            Main.NewText("Current branch not found", Microsoft.Xna.Framework.Color.Red);
+            return null;
+        }
+
+        Commit LatestCommit = GetCommit(repo, CurrentBranch.LatestCommitHash);
+
+        if ( LatestCommit == null ) {
+            Main.NewText("Current branch found but commit not found", Microsoft.Xna.Framework.Color.Red);
+            return null;
+        }
+
+        return LatestCommit.PathToWorldFile;
+    }
+
+    public static Commit GetCommit(Repository repo, string commitHash)
+    {
+        foreach (Commit commit in repo.Commits) 
+        {
+            if (commit.CommitHash ==  commitHash) {
+                return commit;
+            }
+        }
+        return null;   
+    }
+
+    // Creates a commit on the current branch
+    public static void CreateCommit(string commitHash, string message, string previousCommitHash)
+    { 
+        // Create the new instance of the commit
+        var commit = new Commit();
+        commit.Message = message;
+        commit.CommitHash = commitHash;
+        commit.CommitTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+        // Get the current repository
+        Repository repo = GetCurrentRepo();
+
+        // If not found then repo hasn't been created, /tg init must be ran
+        if (repo == null)
+        {
+            Main.NewText("You must run '/tg init' first to create the repo!", Microsoft.Xna.Framework.Color.Red);
+            return;
+        }
+
+        // Alter the current branch to point to that commit
+        foreach (Branch b in repo.Branches)
+        {
+            if (b.Name == repo.CurrentBranch)
             {
-                return;
+                // Get the previous commit hash
+                commit.PreviousCommitHash = b.LatestCommitHash;
+                // Update it 
+                b.LatestCommitHash = commitHash;
             }
         }
         
-        // Add the repo to the list of repositories
-        Data.Repositories.Add(newRepo);
+        // Add the commit to the repo after getting the previous commit hash
+        repo.Commits.Add(commit);
     }
+
 
 }

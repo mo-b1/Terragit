@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Terraria;
 using Microsoft.Xna.Framework;
 using Terraria.ModLoader;
 
@@ -16,7 +17,7 @@ public class TerragitCommand : ModCommand
 
     private static HttpServer _httpServer;
 
-    private readonly Dictionary<string, Action<CommandCaller, string[]>> _commands = new Dictionary<string, Action<CommandCaller, string[]>>
+    private static readonly Dictionary<string, Action<CommandCaller, string[]>> _commands = new Dictionary<string, Action<CommandCaller, string[]>>
     {
         ["init"] = OnInit,
         ["add"] = OnAdd,
@@ -41,21 +42,17 @@ public class TerragitCommand : ModCommand
     // Creates an empty repo in the database
     public static void OnInit(CommandCaller caller, string[] args)
     {
-        if (_httpServer == null)
-        {
-            StartServer(caller);
-        }
-        Database.InitWorld();
+        Main.NewText("yo");
+        if (Database.CreateRepo()){
+            caller.Reply("Repository created succesfully, Branch: " + Database.DefaultBranch);
+            return;
+        } 
+        caller.Reply("Repository already exists", new Color(1.0f, 0.0f, 0.0f));
 
     }
 
     public static void OnAdd(CommandCaller caller, string[] args)
     {
-        if (_httpServer == null)
-        {
-            caller.Reply("Init world first with /tg init");
-        }
-        
         
     }
     public static void OnCommit(CommandCaller caller, string[] args){}

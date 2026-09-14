@@ -5,7 +5,7 @@ namespace Terragit;
 
 public class TerragitData
 {
-    public List<Repository> Repositories { get; set; }
+    public List<Repository> Repositories { get; set; } = new List<Repository>();
 }
 
 public class Commit
