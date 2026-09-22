@@ -32,33 +32,169 @@ public class TerragitCommand : ModCommand
         if (args.Length == 0)
         {
             caller.Reply("Invalid command, see help", new Color(1.0f,0.0f,0.0f));
+            return;
         }
-        else if (args.Length == 1)
+
+        if (_commands.TryGetValue(args[0], out var handler))
         {
-            _commands[args[0]](caller, args);
+            handler(caller, args);
+        }
+        else
+        {
+            caller.Reply("Unknown command: " + args[0], new Color(1.0f, 0.0f, 0.0f));
         }
     }
 
     // Creates an empty repo in the database
     public static void OnInit(CommandCaller caller, string[] args)
     {
-        Main.NewText("yo");
-        if (Database.CreateRepo()){
-            caller.Reply("Repository created succesfully, Branch: " + Database.DefaultBranch);
-            return;
-        } 
-        caller.Reply("Repository already exists", new Color(1.0f, 0.0f, 0.0f));
-
+        Repository r = TDatabase.Init();
+        if (r != null)
+        {
+            caller.Reply("Repository created succesfully, Branch: " + r.CurrentBranch);
+        } else
+        {
+            caller.Reply("Repository already exists", new Color(1.0f, 0.0f, 0.0f));
+        }
     }
 
     public static void OnAdd(CommandCaller caller, string[] args)
     {
-        
+        caller.Reply("[Terragit] Staging world ready for commit...", new Color(0.0f, 1.0f, 0.0f));
+
+        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
+        if (!File.Exists(currentWorldPath))
+        {
+            caller.Reply("World file doesn't exist in storage", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
+
+        TDatabase.currentWorldData = File.ReadAllBytes(currentWorldPath);
+        caller.Reply("[Terragit] World staged successfully", new Color(0.0f, 1.0f, 0.0f));
     }
-    public static void OnCommit(CommandCaller caller, string[] args){}
-    public static void OnPull(CommandCaller caller, string[] args){}
-    public static void OnDiff(CommandCaller caller, string[] args){}
-    public static void OnPush(CommandCaller caller,string[] args){}
+    public static void OnCommit(CommandCaller caller, string[] args)
+    {
+        caller.Reply("[Terragit] A commit request has been received", new Color(0.0f, 1.0f, 0.0f));
+
+        if (args.Length < 2)
+        {
+            caller.Reply("Please add a comment: /tg commit \"added a block\"");
+            return;
+        }
+
+        if (TDatabase.currentWorldData == null)
+        {
+            caller.Reply("[Terragit] You need to add the world first via /tg add");
+            return;
+        }
+
+        string message = string.Join(" ", args, 1, args.Length - 1);
+        TDatabase.CreateCommit(message);
+        caller.Reply("[Terragit] Commit created successfully", new Color(0.0f, 1.0f, 0.0f));
+    }
+
+    public static void OnPull(CommandCaller caller, string[] args)
+    {
+        string pathToWorldFile;
+        
+        if (args.Length < 2)
+        {
+            pathToWorldFile = TDatabase.GetLatestCommitPath();
+        }
+        else
+        {
+            Branch branch = TDatabase.GetBranch(args[1]);
+            if (branch == null)
+            {
+                caller.Reply("Branch not found: " + args[1], new Color(1.0f, 0.0f, 0.0f));
+                return;
+            }
+            pathToWorldFile = TDatabase.GetLatestCommitPath(branch.Name);
+        }
+
+        if (pathToWorldFile == null || !File.Exists(pathToWorldFile))
+        {
+            caller.Reply("No commit found to pull", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
+
+        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
+        File.Copy(pathToWorldFile, currentWorldPath, true);
+        
+        caller.Reply("[Terragit] Pulled latest commit successfully", new Color(0.0f, 1.0f, 0.0f));
+        Main.NewText("[Terragit] World reloaded from commit", Color.Green);
+    }
+
+    public static void OnDiff(CommandCaller caller, string[] args)
+    {
+        string pathToWorldFile;
+        
+        if (args.Length < 2)
+        {
+            pathToWorldFile = TDatabase.GetLatestCommitPath();
+        }
+        else
+        {
+            Branch branch = TDatabase.GetBranch(args[1]);
+            if (branch == null)
+            {
+                caller.Reply("Branch not found: " + args[1], new Color(1.0f, 0.0f, 0.0f));
+                return;
+            }
+            pathToWorldFile = TDatabase.GetLatestCommitPath(branch.Name);
+        }
+
+        if (pathToWorldFile == null || !File.Exists(pathToWorldFile))
+        {
+            caller.Reply("No commit found to diff against", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
+
+        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
+        if (!File.Exists(currentWorldPath))
+        {
+            caller.Reply("Current world file doesn't exist", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
+
+        byte[] currentData = File.ReadAllBytes(currentWorldPath);
+        byte[] commitData = File.ReadAllBytes(pathToWorldFile);
+
+        string currentHash = Utils.Hash(currentData);
+        string commitHash = Utils.Hash(commitData);
+
+        if (currentHash == commitHash)
+        {
+            caller.Reply("[Terragit] No differences - world matches latest commit", new Color(0.0f, 1.0f, 1.0f));
+            return;
+        }
+
+        caller.Reply("[Terragit] Differences found:", new Color(1.0f, 1.0f, 0.0f));
+        caller.Reply($"  Current world: {currentData.Length} bytes (hash: {currentHash.Substring(0, 8)}...)", Color.White);
+        caller.Reply($"  Latest commit: {commitData.Length} bytes (hash: {commitHash.Substring(0, 8)}...)", Color.White);
+        caller.Reply($"  Size difference: {currentData.Length - commitData.Length} bytes", Color.White);
+    }
+
+    public static void OnPush(CommandCaller caller, string[] args)
+    {
+        Repository repo = TDatabase.GetCurrentRepo();
+        if (repo == null)
+        {
+            caller.Reply("No repository found. Run '/tg init' first.", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
+
+        if (_httpServer == null)
+        {
+            StartServer(caller);
+            caller.Reply("[Terragit] Server started on http://localhost:8080", new Color(0.0f, 1.0f, 0.0f));
+            caller.Reply("[Terragit] Push functionality requires remote endpoint configuration", new Color(1.0f, 1.0f, 0.0f));
+        }
+        else
+        {
+            caller.Reply("[Terragit] Server already running on http://localhost:8080", new Color(0.0f, 1.0f, 0.0f));
+        }
+    }
 
 
     private static void StartServer(CommandCaller caller)
@@ -66,5 +202,6 @@ public class TerragitCommand : ModCommand
         _httpServer = new HttpServer();
         _httpServer.Start();
     }
-    
+
 }
+    

@@ -22,9 +22,8 @@ public class Repository
     public string Name{ get; set; }
     public string Guid { get; set; }
     public string CurrentBranch{ get; set; }
-    public List<Branch> Branches {get; set; }
-    public List<Commit> Commits {get; set;}
-
+    public List<Branch> Branches {get; set; } = new List<Branch>();
+    public List<Commit> Commits {get; set;} = new List<Commit>();
 }
 
 public class Branch

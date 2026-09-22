@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Terraria;
 using Terraria.ModLoader;
 
 namespace Terragit
@@ -11,5 +13,10 @@ namespace Terragit
 	public class Terragit : Mod
 	{
 
+		public override void Load()
+		{
+			// Load database
+			TDatabase.Load();
+		}
 	}
 }

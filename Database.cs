@@ -3,29 +3,51 @@ using System.IO;
 using Terraria;
 using JsonSerializerOptions = System.Text.Json.JsonSerializerOptions;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 namespace Terragit;
 
-public static class Database
+public static class TDatabase
 {
     // Paths to the save path 
     // Json db file and commits stored in save path
-    public static string TerragitFolder => Path.Combine(Main.SavePath, "Terragit");
-    public static string JSONpath => Path.Combine(TerragitFolder,  "database.json");
-    public static string CommitsFolder => Path.Combine(TerragitFolder, "commits");
+    private static string TerragitFolder => Path.Combine(Main.SavePath, "Terragit");
+    private static string JSONpath => Path.Combine(TerragitFolder,  "database.json");
+    private static string CommitsFolder => Path.Combine(TerragitFolder, "commits");
+    private static byte[] _currentWorldData;
+    public static byte[] currentWorldData
+    {
+        get => _currentWorldData;
+        set {
+            _currentWorldData = value;
+        }
+    }
 
     // Holds db of all repos in memory
-    public static TerragitData Data = new TerragitData();
+    private static TerragitData Data;
+
+    static TDatabase()
+    {
+        // Checks if nested directories exist, creates them if not
+        Directory.CreateDirectory(TerragitFolder);
+        Directory.CreateDirectory(CommitsFolder);
+    }
 
     // Branch set to this upon /tg init
     public static string DefaultBranch = "Main";
 
     public static void Load()
     {
+        Main.NewText("[Terragit] Loading database...");
+
+        // check if json database exists, if so read the file 
         if (File.Exists(JSONpath))
         {
             string jsonString = File.ReadAllText(JSONpath);
             Data = JsonSerializer.Deserialize<TerragitData>(jsonString) ?? new TerragitData();
+        } else
+        {
+            Data = new TerragitData();
         }
     }
 
@@ -38,8 +60,21 @@ public static class Database
     }
 
     
+    public static Repository Init()
+    {
+        Load();
+        if (GetCurrentRepo() == null)
+        {
+            Repository r = CreateRepo();
+            if (r != null){
+                return r;
+            }             
+        }
+
+        return null;
+    }
     // Creates a repo with the name being the world name
-    public static bool CreateRepo()
+    public static Repository CreateRepo()
     {
         // Replace any spaces from world name with _
         var worldName = Main.worldName;
@@ -56,13 +91,14 @@ public static class Database
         {
             if (repo.Guid == newRepo.Guid)
             {
-                return false;
+                return null;
             }
         }
         
         // Add the repo to the list of repositories
         Data.Repositories.Add(newRepo);
-        return true;
+        Save();
+        return newRepo;
     }
 
     public static Repository GetCurrentRepo()
@@ -104,10 +140,15 @@ public static class Database
                 Main.NewText("Branch: " + b.Name);
             }
         }
+        Save();
     }
 
-    public static Branch GetBranch(Repository repo, string name) 
+    public static Branch GetBranch(string name)  
     {
+        Repository repo = GetCurrentRepo();
+
+        if (repo.Branches == null) return null; 
+
         foreach (Branch b in repo.Branches){
             if (b.Name == name) {
                 return b;
@@ -146,46 +187,64 @@ public static class Database
         // Add it to branches
         repo.CurrentBranch = branchName;
         repo.Branches.Add(newBranch);
+        Save();
 
+    }
+    
+    public static Branch GetCurrentBranch()
+    {
+        Repository repo = GetCurrentRepo();
+        if (repo == null) return null;
+        return GetBranch(repo.CurrentBranch);
     }
 
     // Gets the path to the latest commit on the current branch
-    public static string GetLatestCommitPath()
+    public static string GetLatestCommitPath(string branchName = null)
     {
-        // Get the current repository
         Repository repo = GetCurrentRepo();
 
-        // If not found then repo hasn't been created, /tg init must be ran
         if (repo == null)
         {
             Main.NewText("You must run '/tg init' first to create the repo!", Microsoft.Xna.Framework.Color.Red);
             return null;
         }
 
-        if (repo.CurrentBranch == null) 
+        if (branchName == null)
+        {
+            branchName = repo.CurrentBranch;
+        }
+
+        Branch currentBranch = GetBranch(branchName);
+        if (currentBranch == null) 
         {
             Main.NewText("No current branch for this world: You must make a commit", Microsoft.Xna.Framework.Color.Red);
-        }
-        
-        Branch CurrentBranch = GetBranch(repo, repo.CurrentBranch);
-
-        if (CurrentBranch == null) {
-            Main.NewText("Current branch not found", Microsoft.Xna.Framework.Color.Red);
             return null;
         }
 
-        Commit LatestCommit = GetCommit(repo, CurrentBranch.LatestCommitHash);
+        if (string.IsNullOrEmpty(currentBranch.LatestCommitHash))
+        {
+            Main.NewText("No commits on this branch yet", Microsoft.Xna.Framework.Color.Red);
+            return null;
+        }
 
-        if ( LatestCommit == null ) {
+        Commit latestCommit = GetCommit(currentBranch.LatestCommitHash);
+
+        if (latestCommit == null) {
             Main.NewText("Current branch found but commit not found", Microsoft.Xna.Framework.Color.Red);
             return null;
         }
 
-        return LatestCommit.PathToWorldFile;
+        return Path.Combine(CommitsFolder, latestCommit.CommitHash + ".bin");
     }
 
-    public static Commit GetCommit(Repository repo, string commitHash)
+    public static Commit GetCommit(string commitHash)
     {
+        Repository repo = GetCurrentRepo();
+
+        // if no commits
+        if (repo.Commits == null) return null;
+
+        // finds the commit
         foreach (Commit commit in repo.Commits) 
         {
             if (commit.CommitHash ==  commitHash) {
@@ -196,13 +255,17 @@ public static class Database
     }
 
     // Creates a commit on the current branch
-    public static void CreateCommit(string commitHash, string message, string previousCommitHash)
+    public static void CreateCommit(string message)
     { 
+        string commitHash = Utils.Hash(currentWorldData);
+        string commitPath = Path.Combine(CommitsFolder, commitHash + ".bin");
+
         // Create the new instance of the commit
         var commit = new Commit();
         commit.Message = message;
         commit.CommitHash = commitHash;
         commit.CommitTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        commit.PathToWorldFile = commitPath;
 
         // Get the current repository
         Repository repo = GetCurrentRepo();
@@ -219,16 +282,20 @@ public static class Database
         {
             if (b.Name == repo.CurrentBranch)
             {
-                // Get the previous commit hash
+                // Get the previous commit hash and link the current commit to it
                 commit.PreviousCommitHash = b.LatestCommitHash;
-                // Update it 
+                // Update the latest commit
                 b.LatestCommitHash = commitHash;
             }
         }
+
+        // Save the world as bytes to disk
+        File.WriteAllBytes(commitPath, currentWorldData);
+        _currentWorldData = null;
         
         // Add the commit to the repo after getting the previous commit hash
         repo.Commits.Add(commit);
+        Save();
     }
-
 
 }
