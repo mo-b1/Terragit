@@ -62,8 +62,8 @@ public class TerragitCommand : ModCommand
     {
         caller.Reply("[Terragit] Staging world ready for commit...", new Color(0.0f, 1.0f, 0.0f));
 
-        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
-        if (!File.Exists(currentWorldPath))
+        string currentWorldPath = GetWorldFilePath();
+        if (currentWorldPath == null)
         {
             caller.Reply("World file doesn't exist in storage", new Color(1.0f, 0.0f, 0.0f));
             return;
@@ -71,6 +71,17 @@ public class TerragitCommand : ModCommand
 
         TDatabase.currentWorldData = File.ReadAllBytes(currentWorldPath);
         caller.Reply("[Terragit] World staged successfully", new Color(0.0f, 1.0f, 0.0f));
+    }
+
+    private static string GetWorldFilePath()
+    {
+        string path = Path.Combine(Main.WorldPath, Main.worldName + ".wld");
+        if (File.Exists(path)) return path;
+        
+        path = Path.Combine(Main.WorldPath, Main.worldName + ".twld");
+        if (File.Exists(path)) return path;
+        
+        return null;
     }
     public static void OnCommit(CommandCaller caller, string[] args)
     {
@@ -118,7 +129,12 @@ public class TerragitCommand : ModCommand
             return;
         }
 
-        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
+        string currentWorldPath = GetWorldFilePath();
+        if (currentWorldPath == null)
+        {
+            caller.Reply("Current world file not found", new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
         File.Copy(pathToWorldFile, currentWorldPath, true);
         
         caller.Reply("[Terragit] Pulled latest commit successfully", new Color(0.0f, 1.0f, 0.0f));
@@ -150,8 +166,8 @@ public class TerragitCommand : ModCommand
             return;
         }
 
-        string currentWorldPath = Path.Combine(Main.WorldPath, Main.worldName);
-        if (!File.Exists(currentWorldPath))
+        string currentWorldPath = GetWorldFilePath();
+        if (currentWorldPath == null)
         {
             caller.Reply("Current world file doesn't exist", new Color(1.0f, 0.0f, 0.0f));
             return;
