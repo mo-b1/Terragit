@@ -14,6 +14,7 @@ public static class TDatabase
     private static string TerragitFolder => Path.Combine(Main.SavePath, "Terragit");
     private static string JSONpath => Path.Combine(TerragitFolder,  "database.json");
     private static string CommitsFolder => Path.Combine(TerragitFolder, "commits");
+    private static string RemoteFolder => Path.Combine(TerragitFolder, "remote");
     private static byte[] _currentWorldData;
     public static byte[] currentWorldData
     {
@@ -31,6 +32,7 @@ public static class TDatabase
         // Checks if nested directories exist, creates them if not
         Directory.CreateDirectory(TerragitFolder);
         Directory.CreateDirectory(CommitsFolder);
+        Directory.CreateDirectory(RemoteFolder);
     }
 
     // Branch set to this upon /tg init
@@ -71,6 +73,11 @@ public static class TDatabase
             }             
         }
 
+        // Older database files were created without an initial branch. Repair
+        // those repositories when they are opened.
+        EnsureCurrentBranch(GetCurrentRepo());
+        Save();
+
         return null;
     }
     // Creates a repo with the name being the world name
@@ -85,6 +92,7 @@ public static class TDatabase
         newRepo.Name = worldName;
         newRepo.Guid = Main.ActiveWorldFileData.UniqueId.ToString();
         newRepo.CurrentBranch = DefaultBranch;
+        newRepo.Branches.Add(new Branch { Name = DefaultBranch });
         
         // Check if repo already exists
         foreach (Repository repo in Data.Repositories)
@@ -117,6 +125,27 @@ public static class TDatabase
         
         // Not found, need to create repo first
         return null;
+    }
+
+    private static void EnsureCurrentBranch(Repository repo)
+    {
+        if (repo == null) return;
+
+        if (repo.Branches == null)
+            repo.Branches = new System.Collections.Generic.List<Branch>();
+        if (repo.Commits == null)
+            repo.Commits = new System.Collections.Generic.List<Commit>();
+
+        if (string.IsNullOrEmpty(repo.CurrentBranch))
+            repo.CurrentBranch = DefaultBranch;
+
+        foreach (Branch branch in repo.Branches)
+        {
+            if (branch.Name == repo.CurrentBranch)
+                return;
+        }
+
+        repo.Branches.Add(new Branch { Name = repo.CurrentBranch });
     }
 
     // Changes the current branch to another
@@ -237,6 +266,40 @@ public static class TDatabase
         return Path.Combine(CommitsFolder, latestCommit.CommitHash + ".bin");
     }
 
+    public static string PushCurrentBranch()
+    {
+        string commitPath = GetLatestCommitPath();
+        if (commitPath == null || !File.Exists(commitPath)) return null;
+
+        Branch branch = GetCurrentBranch();
+        if (branch == null) return null;
+
+        string branchKey = Utils.Hash(System.Text.Encoding.UTF8.GetBytes(branch.Name));
+        string remoteRef = Path.Combine(RemoteFolder, branchKey + ".ref");
+        File.WriteAllText(remoteRef, branch.LatestCommitHash);
+        return commitPath;
+    }
+
+    public static string GetPushedCommitPath(string branchName = null)
+    {
+        Repository repo = GetCurrentRepo();
+        if (repo == null) return null;
+
+        branchName ??= repo.CurrentBranch;
+        Branch branch = GetBranch(branchName);
+        if (branch == null) return null;
+
+        string branchKey = Utils.Hash(System.Text.Encoding.UTF8.GetBytes(branch.Name));
+        string remoteRef = Path.Combine(RemoteFolder, branchKey + ".ref");
+        if (!File.Exists(remoteRef)) return null;
+
+        string commitHash = File.ReadAllText(remoteRef).Trim();
+        if (string.IsNullOrEmpty(commitHash)) return null;
+
+        string commitPath = Path.Combine(CommitsFolder, commitHash + ".bin");
+        return File.Exists(commitPath) ? commitPath : null;
+    }
+
     public static Commit GetCommit(string commitHash)
     {
         Repository repo = GetCurrentRepo();
@@ -276,6 +339,8 @@ public static class TDatabase
             Main.NewText("You must run '/tg init' first to create the repo!", Microsoft.Xna.Framework.Color.Red);
             return;
         }
+
+        EnsureCurrentBranch(repo);
 
         // Alter the current branch to point to that commit
         foreach (Branch b in repo.Branches)

@@ -15,8 +15,6 @@ public class TerragitCommand : ModCommand
     public override CommandType Type => CommandType.Chat;
     public override string Description => "tg init, tg add, tg commit, tg push, tg pull, tg diff";
 
-    private static HttpServer _httpServer;
-
     private static readonly Dictionary<string, Action<CommandCaller, string[]>> _commands = new Dictionary<string, Action<CommandCaller, string[]>>
     {
         ["init"] = OnInit,
@@ -100,8 +98,15 @@ public class TerragitCommand : ModCommand
         }
 
         string message = string.Join(" ", args, 1, args.Length - 1);
-        TDatabase.CreateCommit(message);
-        caller.Reply("[Terragit] Commit created successfully", new Color(0.0f, 1.0f, 0.0f));
+        try
+        {
+            TDatabase.CreateCommit(message);
+            caller.Reply("[Terragit] Commit created successfully", new Color(0.0f, 1.0f, 0.0f));
+        }
+        catch (Exception ex)
+        {
+            caller.Reply("[Terragit] Commit failed: " + ex.Message, new Color(1.0f, 0.0f, 0.0f));
+        }
     }
 
     public static void OnPull(CommandCaller caller, string[] args)
@@ -110,7 +115,7 @@ public class TerragitCommand : ModCommand
         
         if (args.Length < 2)
         {
-            pathToWorldFile = TDatabase.GetLatestCommitPath();
+            pathToWorldFile = TDatabase.GetPushedCommitPath() ?? TDatabase.GetLatestCommitPath();
         }
         else
         {
@@ -120,7 +125,7 @@ public class TerragitCommand : ModCommand
                 caller.Reply("Branch not found: " + args[1], new Color(1.0f, 0.0f, 0.0f));
                 return;
             }
-            pathToWorldFile = TDatabase.GetLatestCommitPath(branch.Name);
+            pathToWorldFile = TDatabase.GetPushedCommitPath(branch.Name) ?? TDatabase.GetLatestCommitPath(branch.Name);
         }
 
         if (pathToWorldFile == null || !File.Exists(pathToWorldFile))
@@ -135,7 +140,15 @@ public class TerragitCommand : ModCommand
             caller.Reply("Current world file not found", new Color(1.0f, 0.0f, 0.0f));
             return;
         }
-        File.Copy(pathToWorldFile, currentWorldPath, true);
+        try
+        {
+            File.Copy(pathToWorldFile, currentWorldPath, true);
+        }
+        catch (Exception ex)
+        {
+            caller.Reply("[Terragit] Pull failed: " + ex.Message, new Color(1.0f, 0.0f, 0.0f));
+            return;
+        }
         
         caller.Reply("[Terragit] Pulled latest commit successfully", new Color(0.0f, 1.0f, 0.0f));
         Main.NewText("[Terragit] World reloaded from commit", Color.Green);
@@ -200,23 +213,20 @@ public class TerragitCommand : ModCommand
             return;
         }
 
-        if (_httpServer == null)
+        string path = TDatabase.GetLatestCommitPath();
+        if (path == null || !File.Exists(path))
         {
-            StartServer(caller);
-            caller.Reply("[Terragit] Server started on http://localhost:8080", new Color(0.0f, 1.0f, 0.0f));
-            caller.Reply("[Terragit] Push functionality requires remote endpoint configuration", new Color(1.0f, 1.0f, 0.0f));
+            caller.Reply("[Terragit] Nothing to push. Create a commit first.", new Color(1.0f, 0.0f, 0.0f));
+            return;
         }
-        else
+
+        if (TDatabase.PushCurrentBranch() == null)
         {
-            caller.Reply("[Terragit] Server already running on http://localhost:8080", new Color(0.0f, 1.0f, 0.0f));
+            caller.Reply("[Terragit] Push failed.", new Color(1.0f, 0.0f, 0.0f));
+            return;
         }
-    }
 
-
-    private static void StartServer(CommandCaller caller)
-    {
-        _httpServer = new HttpServer();
-        _httpServer.Start();
+        caller.Reply("[Terragit] Pushed commit " + Path.GetFileNameWithoutExtension(path), new Color(0.0f, 1.0f, 0.0f));
     }
 
 }
