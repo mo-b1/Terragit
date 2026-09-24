@@ -2,16 +2,20 @@
 
 Terragit brings Git-inspired version control to Terraria worlds running on tModLoader.
 It stores world snapshots as commits, keeps a history for each world, and lets you
-restore a previous snapshot from the in-game chat.
+restore snapshots from the in-game chat or a local web interface.
 
 ## Features
 
 - One repository per Terraria world.
 - Commit world snapshots with a message.
-- Branch-aware commit history.
-- Push and pull commands backed by local save data.
+- Commit history tracked by branch.
+- Commit and pull commands backed by local save data.
 - A simple world diff based on file size and SHA-256 hashes.
-- Supports both `.wld` and `.twld` world files.
+- A local website for browsing and managing repositories, commits, and branches.
+- Snapshots of the active local world file (normally `.wld`).
+
+Snapshots currently contain one file, not a complete world/mod-data bundle.
+The companion `.twld` file is not committed or restored alongside the `.wld`.
 
 Terragit stores its data in the tModLoader save directory:
 
@@ -22,12 +26,53 @@ Terragit stores its data in the tModLoader save directory:
 └── remote/
 ```
 
-The `remote` directory is currently a local branch reference. Network remotes are
-not implemented yet.
+The `remote` directory contains local branch-head references used by `pull` and
+`checkout`. Network remotes and external Git hosting are not implemented yet.
+
+## Local website
+
+The website starts automatically when Terragit loads and stops when the mod
+unloads. Open **http://127.0.0.1:17840/** in your browser. If that port is occupied,
+Terragit tries ports 17841–17849. Run `/tg web` or check the tModLoader log for the
+actual address. No Node.js install, separate web process, or internet connection
+is required.
+
+The interface includes:
+
+- Search and browse all repositories in this installation's Terragit database.
+- View commit messages, timestamps, hashes, and branch heads.
+- Rename repositories, edit commit messages, and create branches from an existing
+  branch. Renaming a repository does not rename the Terraria world.
+- Delete a non-current branch while retaining its commits and snapshot files.
+- Download a snapshot as a raw `.bin` file.
+- Initialize, commit, compare, pull, check out a branch, or restore an older
+  snapshot for the currently loaded local single-player world.
+
+Creating a branch in the website does not switch the active branch. Select the
+branch and use **Check out** to switch and restore its snapshot. Restoring an
+individual historical commit does not move the branch head; commit afterward
+if you want to record the restored state.
+
+“Other repositories” means other worlds already initialized in this local
+database. You can edit their metadata and branches without loading those worlds.
+Load the corresponding world to commit or restore its files. Cloud saves and
+multiplayer world operations are not supported. Repository browsing and metadata
+management also work from the main menu.
+
+The website and chat commands both use `Database.cs` and `WorldOperations.cs`.
+Browser operations are queued on Terraria's game thread. Keep tModLoader running;
+if it is busy or paused in the background, a request can time out. Return to the
+game and refresh the page. Timed-out queued mutations are cancelled.
+
+The HTTP server listens only on the loopback address. Writes require a
+per-session token, and foreign origins and Host headers are rejected. This is a
+local application, not an authenticated multi-user hosting service.
 
 ## Installation
 
 ### From the Steam Workshop
+
+If a Workshop release is available for your tModLoader version:
 
 1. Subscribe to Terragit on the Steam Workshop.
 2. Start tModLoader.
@@ -50,85 +95,51 @@ Load or create a world, then run these commands in chat:
 
 ```text
 /tg init
-/tg add
 /tg commit "initial snapshot"
-/tg push
 ```
 
 After making more changes:
 
 ```text
-/tg add
 /tg commit "built the new house"
-/tg push
 ```
 
-To restore the most recently pushed snapshot:
+To restore the latest snapshot on the current branch:
 
 ```text
 /tg pull
 ```
 
-The world must be saved before staging it. Pulling replaces the current world file,
-so make a backup first if the current changes matter.
+The world must be saved before committing it because `commit` reads the saved
+world file directly. Pulling and checking out save and quit, back up the current
+file, replace it with the snapshot, then reload. Backups are written beside the
+world as `<world-file>.terragit-backup-<timestamp>`; an existing `.twld` sidecar is
+also backed up. The sidecar is not rolled back with the snapshot, so test restores
+on a disposable world before relying on them for modded data.
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
 | `/tg init` | Creates a repository for the current world. Repairs older repositories that do not have an initial branch. |
-| `/tg add` | Reads the current `.wld` or `.twld` file into the staging area. |
-| `/tg commit "message"` | Saves the staged world as a commit on the current branch. |
-| `/tg push` | Publishes the current branch head to Terragit's local `remote` reference. |
-| `/tg pull` | Restores the pushed snapshot for the current branch. |
-| `/tg pull <branch>` | Restores the pushed/latest snapshot from a named branch. |
+| `/tg commit "message"` | Reads the active saved world file, creates a commit, and updates the current branch's local reference. Rejects unchanged snapshots. |
+| `/tg pull` | Restores the current branch's local reference, or its latest commit when no reference exists. |
+| `/tg pull <branch>` | Restores the named branch's local reference, or its latest commit when no reference exists. |
+| `/tg checkout [branch]` | Switches to an existing branch and restores its local reference or latest commit. Defaults to the current branch. |
 | `/tg diff` | Compares the current world file with the latest local commit. |
 | `/tg diff <branch>` | Compares the current world file with a named branch's latest commit. |
+| `/tg web` | Shows the local website's address. |
 
-## Testing checklist
-
-Use a disposable test world or back up your world before testing:
-
-1. Enable Terragit and load the test world.
-2. Run `/tg init`. Confirm that a repository-created message appears.
-3. Make a small, visible change in the world.
-4. Save the world, then run `/tg add`.
-5. Run `/tg commit "test snapshot"`.
-6. Run `/tg diff`. The current world should match the commit if nothing changed afterward.
-7. Run `/tg push`.
-8. Make another change and save it.
-9. Run `/tg pull`. Confirm that the world file is restored to the pushed snapshot.
-10. Restart tModLoader, reload the same world, and repeat `/tg diff` to verify that the repository persists.
-
-If a command reports that no repository or commit exists, run the commands in order:
-`init`, `add`, `commit`, then `push`.
-
-## Building and publishing
-
-For local development, build the project from the tModLoader `ModSources` location:
-
-```bash
-dotnet build Terragit.csproj
-```
-
-In tModLoader, use **Workshop > Develop Mods** to build and package the mod. To
-publish it, use the Workshop publishing flow, provide the mod name, description,
-icon, and version metadata, then test the published copy from a clean client.
-
-Before publishing, verify that:
-
-- The mod builds without errors.
-- The mod loads with a fresh world.
-- Existing worlds are not overwritten unexpectedly.
-- Commit, push, pull, and diff work after restarting tModLoader.
-- The Workshop description matches the current local-only push/pull behavior.
+`/tg init` creates the `Main` branch. Create additional branches from the website.
+Command and branch names are case-sensitive. Pulling a named branch does not
+switch the current branch.
 
 ## Development notes
 
 Terragit is an early project. Commits are complete world-file snapshots rather
-than tile-level diffs, and push/pull currently do not communicate with a server
-or external Git host. Network synchronization can be added later without changing
-the basic in-game workflow.
+than tile-level diffs. All repository data is stored locally, and commit/pull
+currently do not communicate with a server or external Git host. Network
+synchronization can be added later without changing the basic in-game workflow.
 
 ## License
 

@@ -1,4 +1,4 @@
 displayName = Terragit
 author = mo-b1
 version = 0.1
-buildIgnore = Tests/*
+buildIgnore = Tests/*, Branding/*, Web/logo.png

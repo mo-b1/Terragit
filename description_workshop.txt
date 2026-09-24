@@ -1,1 +1,51 @@
-This description will show up on the steam page, check out https://steamcommunity.com/comment/Guide/formattinghelp.
+[h1]Terragit[/h1]
+[b]Small commits. Big worlds.[/b]
+
+That first shelter. Your sprawling castle. The tunnel that went a little too far.
+
+Give your world a history with Terragit: Git-inspired world snapshots for tModLoader, with in-game commands and a simple local website. Save a moment, explore a different direction on a branch, and return to an earlier snapshot when you need it.
+
+[h2]Your worlds, with a history[/h2]
+[list]
+[*][b]Named snapshots:[/b] Record your saved world with a message describing what changed.
+[*][b]Branches:[/b] Create a branch from an existing branch and check it out to restore its snapshot.
+[*][b]A local repository website:[/b] Browse commits, edit messages, rename repositories, manage branches, and download snapshot files.
+[*][b]Simple comparisons:[/b] Check whether your saved world matches a branch's latest snapshot using file sizes and hashes.
+[*][b]Restore from history:[/b] Pull a branch snapshot or choose an older commit in the website. A backup is made before the world file is replaced.
+[*][b]More than one world:[/b] Browse and organize all worlds already initialized in your local Terragit database.
+[/list]
+
+[h2]Get started[/h2]
+[olist]
+[*]Enable Terragit and load a local single-player world.
+[*]Run [b]/tg init[/b] in chat.
+[*]Save your world, then run [b]/tg commit "first snapshot"[/b].
+[*]Run [b]/tg web[/b] to see the website address and open it in your browser.
+[/olist]
+
+The website starts automatically when the mod loads, normally at [b]http://127.0.0.1:17840/[/b]. If that port is busy, Terragit tries another local port; /tg web shows the actual address. Keep tModLoader running while using the website. No separate web-server setup is needed.
+
+[h2]Handy commands[/h2]
+[list]
+[*][b]/tg init[/b] - Initialize the current world's repository.
+[*][b]/tg commit "message"[/b] - Commit the saved world and update its local branch reference.
+[*][b]/tg diff[/b] - Compare the saved world with the current branch's latest commit.
+[*][b]/tg pull[/b] - Restore the current branch's snapshot and reload the world.
+[*][b]/tg checkout branch-name[/b] - Switch to an existing branch and restore its snapshot.
+[*][b]/tg web[/b] - Show the local website address.
+[/list]
+
+Create new branches in the website. To commit or restore another repository's world, load that world first.
+
+[h2]Before you restore[/h2]
+[b]Terragit is in early development. Keep independent backups and try it on a disposable world first.[/b]
+
+[list]
+[*]Snapshots currently capture a single world file, normally .wld. The companion [b].twld mod-data file is not committed or restored[/b] alongside it, so a snapshot is not a complete backup of a modded world.
+[*]Commit and diff read the saved file. Save in Terraria first; unsaved changes in memory are not captured.
+[*]Restoring replaces the world file and reloads the world. Terragit backs up the current world file and any existing .twld sidecar first, but does not roll the sidecar back.
+[*]World operations support [b]local single-player saves only[/b]. Multiplayer and cloud saves are not supported.
+[*]Everything stays on your computer. There are no network remotes, shared online repositories, or GitHub synchronization.
+[/list]
+
+[url=https://github.com/mo-b1/Terragit]Source code and documentation[/url]

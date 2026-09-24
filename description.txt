@@ -1,1 +1,16 @@
-Modify this file with a description of your mod.
+Terragit - a little history for your world.
+
+Keep named snapshots of your Terraria world, try a new building direction on a branch, and revisit earlier saves. Manage your history from chat or a simple local website that starts automatically when the mod loads.
+
+- Create world snapshots with commit messages.
+- Browse commits, manage branches, and download snapshots from your browser.
+- Compare your saved world with a branch's latest snapshot.
+- Pull a branch snapshot or restore an older commit from the website.
+- Browse and organize other worlds already in your local Terragit database.
+
+Getting started:
+Load a local single-player world and run /tg init. Save your world, then run /tg commit "first snapshot". Use /tg web to find the local website address (normally http://127.0.0.1:17840/).
+
+Early development: snapshots currently capture one world file, normally .wld. The companion .twld mod-data file is not committed or restored with it. Restores replace the world file and reload the world; Terragit makes a backup first. Keep independent backups and test with a disposable world.
+
+World operations support local single-player saves only. No multiplayer, cloud-save support, network remotes, or GitHub synchronization. Commits read the saved file, not unsaved changes in memory.

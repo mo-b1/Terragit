@@ -94,12 +94,15 @@ public sealed class HttpServer : IDisposable
             }
 
             string path = request.Url.AbsolutePath;
-            if (request.HttpMethod == "GET" && (path == "/" || path == "/app.js" || path == "/style.css"))
+            if (request.HttpMethod == "GET" && (path == "/" || path == "/app.js" || path == "/style.css" || path == "/logo.png"))
             {
                 string file = path == "/" ? "index.html" : path.Substring(1);
                 string contentType = file.EndsWith(".html") ? "text/html; charset=utf-8"
-                    : file.EndsWith(".js") ? "text/javascript; charset=utf-8" : "text/css; charset=utf-8";
-                await Send(response, readAsset(file), contentType, deadline.Token);
+                    : file.EndsWith(".js") ? "text/javascript; charset=utf-8"
+                    : file.EndsWith(".png") ? "image/png" : "text/css; charset=utf-8";
+                // tModLoader converts packaged .png files into game textures.
+                // Keep a byte-for-byte .bin copy for browser image responses.
+                await Send(response, readAsset(file == "logo.png" ? "logo.png.bin" : file), contentType, deadline.Token);
             }
             else if (request.HttpMethod == "GET" && path == "/api/state")
             {
