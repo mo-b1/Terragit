@@ -10,7 +10,8 @@
 
 	<!-- References -->
 	<ItemGroup>
-		
+		<EmbeddedResource Include="Web/**" />
+		<Compile Remove="Tests/**" />
 	</ItemGroup>
 
 </Project>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terragit · Local repositories</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="brand-icon" aria-hidden="true">T</span> Terragit <span class="local-badge">LOCAL</span></a>
+    <span class="tagline">A little history for your world.</span>
+    <button id="refresh" class="subtle">↻ Refresh</button>
+  </header>
+  <div class="layout">
+    <aside>
+      <div class="sidebar-title"><h2>Repositories</h2><span id="repo-count" class="count">0</span></div>
+      <label class="sr-only" for="search">Find a repository</label>
+      <input id="search" type="search" placeholder="Find a repository…" autocomplete="off">
+      <nav id="repo-list" aria-label="Repositories"></nav>
+      <div class="sidebar-footer"><span class="status-dot"></span> On your machine<br><small>World snapshots. No cloud required.</small></div>
+    </aside>
+    <main>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <section class="world-bar">
+        <div><span class="eyebrow">IN T MOD LOADER</span><p id="world-status">Connecting to your worlds…</p></div>
+        <button id="init" class="primary" hidden>Initialize repository</button>
+      </section>
+      <div id="empty" class="empty" hidden><span class="empty-icon" aria-hidden="true">⑂</span><h1>Your world's story starts here.</h1><p>Load a local single-player world in tModLoader, then initialize its repository.</p></div>
+      <div id="repository" hidden>
+        <div class="repo-heading"><div><div class="breadcrumb">Local workspace <span>/</span> <span id="repo-owner">worlds</span></div><h1 id="repo-name"></h1></div><span id="active-badge" class="badge" hidden>Loaded world</span></div>
+        <div class="tabs" role="tablist" aria-label="Repository sections">
+          <button role="tab" id="tab-history" data-tab="history" aria-selected="true" aria-controls="history">◷ &nbsp; Commits <span id="commit-count" class="count"></span></button>
+          <button role="tab" id="tab-branches" data-tab="branches" aria-selected="false" aria-controls="branches">⑂ &nbsp; Branches <span id="branch-count" class="count"></span></button>
+          <button role="tab" id="tab-settings" data-tab="settings" aria-selected="false" aria-controls="settings">⚙ &nbsp; Settings</button>
+        </div>
+        <div class="repo-toolbar">
+          <label for="branch-select">Branch</label><select id="branch-select"></select>
+          <span id="branch-note" class="muted"></span>
+          <div class="toolbar-actions"><button id="diff">Compare saved world</button><button id="checkout">Check out</button><button id="pull">Pull snapshot</button></div>
+        </div>
+        <p id="world-hint" class="hint"></p>
+        <section id="history" role="tabpanel" aria-labelledby="tab-history">
+          <form id="commit-form" class="panel commit-form">
+            <div><h2>Save a moment</h2><p>Commit the latest world file saved by Terraria.</p></div>
+            <div class="input-row"><label class="sr-only" for="commit-message">Commit message</label><input id="commit-message" required maxlength="500" placeholder="What changed in your world?"><button class="primary" type="submit">Commit snapshot</button></div>
+          </form>
+          <div class="section-heading"><h2>Commit history</h2><span class="muted">Newest first · all repository commits</span></div>
+          <div id="commits" class="panel"></div>
+        </section>
+        <section id="branches" role="tabpanel" aria-labelledby="tab-branches" hidden>
+          <form id="branch-form" class="panel commit-form"><div><h2>A new direction</h2><p>Create a branch from the branch selected above. This does not switch your world.</p></div><div class="input-row"><label class="sr-only" for="branch-name">New branch name</label><input id="branch-name" required maxlength="80" pattern="[^\s]+" placeholder="e.g. castle-build"><button class="primary" type="submit">Create branch</button></div></form>
+          <div id="branches-list" class="panel"></div>
+        </section>
+        <section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <form id="rename-form" class="panel commit-form"><div><h2>Repository name</h2><p>A display name for this repository. Your world file is not renamed.</p></div><div class="input-row"><label class="sr-only" for="rename">Repository name</label><input id="rename" required maxlength="120"><button type="submit">Save name</button></div></form>
+          <div class="panel about"><h2>Repository details</h2><dl><dt>World ID</dt><dd id="repo-id"></dd><dt>Current branch</dt><dd id="current-branch"></dd><dt>Storage</dt><dd>tModLoader save folder / Terragit</dd></dl><p>Snapshots currently capture one world file. The .twld mod-data sidecar is not included when a .wld is captured.</p></div>
+        </section>
+      </div>
+      <footer>Terragit <span>·</span> Small commits. Big worlds.</footer>
+    </main>
+  </div>
+  <dialog id="confirm-dialog">
+    <form method="dialog"><h2 id="confirm-title"></h2><p id="confirm-text"></p><div class="dialog-actions"><button value="cancel">Cancel</button><button id="confirm-yes" class="danger" value="confirm">Continue</button></div></form>
+  </dialog>
+  <dialog id="message-dialog">
+    <form id="message-form"><h2>Edit commit message</h2><label for="edit-message">Message</label><textarea id="edit-message" required maxlength="500" rows="4"></textarea><div class="dialog-actions"><button id="cancel-message" type="button">Cancel</button><button class="primary" type="submit">Save message</button></div></form>
+  </dialog>
+  <noscript>This website needs JavaScript to connect to the local Terragit database.</noscript>
+</body>
+</html>

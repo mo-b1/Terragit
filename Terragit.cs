@@ -1,22 +1,37 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Terraria;
 using Terraria.ModLoader;
 
-namespace Terragit
-{
-	// Please read https://github.com/tModLoader/tModLoader/wiki/Basic-tModLoader-Modding-Guide#mod-skeleton-contents for more information about the various files in a mod.
-	public class Terragit : Mod
-	{
+namespace Terragit;
 
-		public override void Load()
-		{
-			// Load database
-			TDatabase.Load();
-		}
-	}
+public class Terragit : Mod
+{
+    private HttpServer webServer;
+    public static string WebUrl { get; private set; }
+
+    public override void Load()
+    {
+        TDatabase.Load();
+        WorldOperations.Reset();
+        try
+        {
+            webServer = new HttpServer(message => Logger.Warn(message), file => GetFileBytes("Web/" + file));
+            webServer.Start();
+            WebUrl = webServer.Url;
+            Logger.Info("Terragit website: " + WebUrl);
+        }
+        catch (Exception ex)
+        {
+            webServer?.Dispose();
+            webServer = null;
+            Logger.Warn("Terragit website could not start: " + ex.Message);
+        }
+    }
+
+    public override void Unload()
+    {
+        webServer?.Dispose();
+        webServer = null;
+        WebUrl = null;
+        WorldOperations.Reset();
+    }
 }
