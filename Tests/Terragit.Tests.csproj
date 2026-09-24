@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs;TerrariaStubs.cs" />
+    <Compile Include="../Database.cs;../DatabaseModels.cs;../Utilities.cs;../WorldOperations.cs;../HttpServer.cs" />
+    <EmbeddedResource Include="../Web/*" LogicalName="Terragit.Web.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
